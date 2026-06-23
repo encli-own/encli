@@ -1,0 +1,46 @@
+# encli-client configuration
+# Конфигурация TUI клиента
+
+client:
+  # Сервер для подключения
+  server:
+    address: "localhost:8443"
+    tls: true
+    server_pubkey: ""       # Публичный ключ сервера для верификации
+    
+  # Криптография
+  crypto:
+    # Путь к ключам устройства
+    keys_path: "~/.encli/keys"
+    # Мастер-пароль (если пусто — запрос при старте)
+    master_password: ""
+    
+  # TUI настройки
+  ui:
+    theme: "dark"           # dark, light
+    sidebar_width: 30
+    message_bubble_width: 60
+    timestamps: true
+    
+  # Хранилище сообщений
+  storage:
+    path: "~/.encli/messages.db"
+    # Ключ шифрования SQLCipher (автогенерация если пусто)
+    encryption_key: ""
+    # Эфемерный режим: уничтожение при выходе
+    ephemeral: true
+    
+  # Сеть
+  network:
+    # Интервал опроса сервера (pull)
+    poll_interval: 10s
+    # Шумовой трафик
+    noise_traffic: true
+    # Таймаут соединения
+    timeout: 30s
+    
+  # Уведомления (для Termux/Android)
+  notifications:
+    enabled: true
+    termux_notification: true
+    sound: false

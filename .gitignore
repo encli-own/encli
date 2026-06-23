@@ -1,0 +1,52 @@
+# Binaries
+build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go workspace
+go.work
+go.work.sum
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Env files
+.env
+.env.local
+.env.*
+
+# Certificates
+certs/
+*.pem
+*.key
+
+# Token files
+*_token.txt
+*_token
+
+# Keys
+keys/
+*.enc
+*.json
+
+# Config overrides
+configs/*.local.yaml
+configs/*.local.yml
+
+# Data directories
+data/
+encli-data/
+
+# Logs
+*.log

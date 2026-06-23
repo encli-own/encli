@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  encli-server:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile.server
+    container_name: encli-server
+    restart: unless-stopped
+    ports:
+      - "8443:8443"
+      - "8444:8444"
+    volumes:
+      - encli-data:/data
+      - ./trusted_nodes.json:/app/trusted_nodes.json:ro
+    environment:
+      - ENCLI_SERVER_HOST=0.0.0.0
+      - ENCLI_SERVER_PORT=8443
+      - ENCLI_MESSAGE_TTL=168h
+      - ENCLI_MAX_ACCOUNTS=10000
+      - ENCLI_LOG_LEVEL=info
+    networks:
+      - encli-network
+    healthcheck:
+      test: ["CMD", "/app/encli-server", "-health-check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    
+  # Опционально: Prometheus для мониторинга
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: encli-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - encli-network
+    profiles:
+      - monitoring
+      
+  # Опционально: Grafana для визуализации
+  grafana:
+    image: grafana/grafana:latest
+    container_name: encli-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - encli-network
+    profiles:
+      - monitoring
+
+volumes:
+  encli-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  encli-network:
+    driver: bridge

@@ -1,0 +1,65 @@
+# encli-server configuration
+# Конфигурация сервера blind relay
+
+server:
+  # Адрес прослушивания
+  host: "0.0.0.0"
+  port: 8443
+  
+  # gRPC порт (для федерации и стриминга)
+  grpc_port: 8444
+  
+  # TLS конфигурация
+  tls:
+    enabled: true
+    cert_path: ""
+    key_path: ""
+    auto_cert: true  # Автоматические сертификаты Let's Encrypt
+  
+  # Максимальные лимиты
+  max_accounts: 10000
+  max_devices_per_account: 10
+  max_message_size: 16384  # 16 KB (fixed packet size)
+  max_mailbox_size: 100    # макс. пакетов в ящике
+  
+  # TTL конфигурация
+  message_ttl: 168h        # 7 дней
+  mailbox_cleanup_interval: 1h
+  
+  # Шумовой трафик
+  noise_traffic:
+    enabled: true
+    min_interval: 30s
+    max_interval: 90s
+  
+  # Rate limiting
+  rate_limit:
+    requests_per_second: 10
+    burst: 20
+  
+  # Федерация
+  federation:
+    enabled: true
+    trusted_nodes_file: "trusted_nodes.json"
+    sync_interval: 5m
+  
+  # Манифест сервера (публичная информация)
+  manifest:
+    server_id: ""           # Автогенерация из публичного ключа
+    version: "1.0.0"
+    operator: ""            # Оператор сервера (опционально)
+    description: "encli blind relay node"
+    region: ""
+    
+  # Логирование
+  logging:
+    level: "info"           # debug, info, warn, error
+    format: "json"          # json, text
+    output: "stdout"        # stdout, file
+    file_path: ""           # если output = file
+    
+  # Хранилище (in-memory с опциональным шифрованным persistence)
+  storage:
+    type: "memory"          # memory, encrypted_file
+    persistence_path: ""    # для encrypted_file
+    encryption_key: ""      # 32-byte hex key (автогенерация если пусто)
