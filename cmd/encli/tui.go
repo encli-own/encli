@@ -158,7 +158,6 @@ func NewAppModel(identity *crypto.Identity) *AppModel {
 	ta.ShowLineNumbers = false
 	ta.SetWidth(50)
 	ta.SetHeight(3)
-	ta.Focus()
 
 	// Viewport для сообщений
 	vp := viewport.New(50, 20)
@@ -287,6 +286,11 @@ func (m *AppModel) updateChatList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, m.keys.Settings):
 		m.screen = ScreenSettings
+
+	default:
+		var cmd tea.Cmd
+		m.chatList, cmd = m.chatList.Update(msg)
+		return m, cmd
 	}
 
 	return m, nil
@@ -320,9 +324,13 @@ func (m *AppModel) updateChat(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.textarea.Blur()
 
 	default:
+		var cmds []tea.Cmd
 		var cmd tea.Cmd
 		m.textarea, cmd = m.textarea.Update(msg)
-		return m, cmd
+		cmds = append(cmds, cmd)
+		m.viewport, cmd = m.viewport.Update(msg)
+		cmds = append(cmds, cmd)
+		return m, tea.Batch(cmds...)
 	}
 
 	return m, nil
