@@ -14,8 +14,6 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-
-	"golang.org/x/crypto/acme/autocert"
 )
 
 var (
@@ -25,12 +23,12 @@ var (
 
 func main() {
 	var (
-		configPath   = flag.String("config", "configs/server.yaml", "Path to server configuration file")
-		healthCheck  = flag.Bool("health-check", false, "Run health check and exit")
-		showVersion  = flag.Bool("version", false, "Show version and exit")
-		showHelp     = flag.Bool("help", false, "Show help")
-		genKeys      = flag.Bool("gen-keys", false, "Generate server keypair and exit")
-		initNode     = flag.Bool("init", false, "Initialize node (create config, keys)")
+		configPath  = flag.String("config", "configs/server.yaml", "Path to server configuration file")
+		healthCheck = flag.Bool("health-check", false, "Run health check and exit")
+		showVersion = flag.Bool("version", false, "Show version and exit")
+		showHelp    = flag.Bool("help", false, "Show help")
+		genKeys     = flag.Bool("gen-keys", false, "Generate server keypair and exit")
+		initNode    = flag.Bool("init", false, "Initialize node (create config, keys)")
 	)
 	flag.Parse()
 
