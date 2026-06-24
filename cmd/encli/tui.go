@@ -113,6 +113,7 @@ type keyMap struct {
 	Send     key.Binding
 	Escape   key.Binding
 	Delete   key.Binding
+	CtrlD    key.Binding
 }
 
 var defaultKeyMap = keyMap{
@@ -154,7 +155,11 @@ var defaultKeyMap = keyMap{
 	),
 	Delete: key.NewBinding(
 		key.WithKeys("d"),
-		key.WithHelp("d", "delete contact"),
+		key.WithHelp("d", "delete chat"),
+	),
+	CtrlD: key.NewBinding(
+		key.WithKeys("ctrl+d"),
+		key.WithHelp("ctrl+d", "delete contact"),
 	),
 }
 
@@ -352,8 +357,7 @@ func (m *AppModel) updateChatList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					break
 				}
 			}
-			m.contacts.Delete(item.Name)
-			m.statusMessage = "Contact deleted: " + item.Name
+			return m, m.setStatus("Chat deleted: " + item.Name)
 		}
 
 	default:
@@ -444,6 +448,14 @@ func (m *AppModel) updateNewChat(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.textarea.Reset()
 		m.searchResults = nil
 		m.selectedResult = 0
+
+	case key.Matches(msg, m.keys.CtrlD):
+		if len(m.searchResults) > 0 {
+			sel := m.searchResults[m.selectedResult]
+			m.contacts.Delete(sel.Nickname)
+			m.updateSearchResults()
+			return m, m.setStatus("Contact deleted: " + sel.Nickname)
+		}
 
 	case key.Matches(msg, m.keys.Enter):
 		query := strings.TrimSpace(m.textarea.Value())
@@ -635,7 +647,6 @@ func (m *AppModel) sendMessage() {
 
 	if m.network.mailboxID == "" {
 		if err := m.network.Connect(m.serverAddr, m.identity); err != nil {
-			m.statusMessage = "Send failed: " + err.Error()
 			return
 		}
 	}
@@ -675,6 +686,11 @@ func (m *AppModel) refreshViewport() {
 
 	m.viewport.SetContent(b.String())
 	m.viewport.GotoBottom()
+}
+
+func (m *AppModel) setStatus(msg string) tea.Cmd {
+	m.statusMessage = msg
+	return clearStatusAfter(3 * time.Second)
 }
 
 func (m *AppModel) renderStatusBar() string {
