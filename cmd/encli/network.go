@@ -350,7 +350,7 @@ func (cn *ClientNetwork) SendMessage(recipientDeviceID string, msg Message) erro
 	recipientMailbox := computeMailboxID(recipientDeviceID)
 
 	// Placeholder: отправка plaintext (для тестирования)
-	payload := []byte(fmt.Sprintf("%s: %s", msg.Sender, msg.Content))
+	payload := []byte(fmt.Sprintf("%s\n%s", msg.Sender, msg.Content))
 
 	return cn.PushMessage(recipientMailbox, payload, nil)
 }

@@ -250,14 +250,37 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case messagesPulledMsg:
 		for _, pm := range msg.messages {
 			payloadBytes, decErr := hex.DecodeString(pm.Payload)
-			content := pm.Payload
-			if decErr == nil {
-				content = string(payloadBytes)
+			if decErr != nil {
+				continue
+			}
+			payload := string(payloadBytes)
+			var senderID, msgContent string
+			if idx := strings.Index(payload, "\n"); idx > 0 {
+				senderID = payload[:idx]
+				msgContent = payload[idx+1:]
+			} else if idx := strings.Index(payload, ": "); idx > 0 {
+				senderID = payload[:idx]
+				msgContent = payload[idx+2:]
+			} else {
+				senderID = "unknown"
+				msgContent = payload
+			}
+			senderName := senderID
+			if m.contacts != nil {
+				for _, c := range m.contacts.Search(senderID) {
+					if c.DeviceID == senderID || (len(senderID) >= 8 && strings.HasPrefix(c.DeviceID, senderID[:8])) {
+						senderName = c.Nickname
+						break
+					}
+				}
+			}
+			if senderName == senderID && len(senderID) > 16 {
+				senderName = senderID[:16] + ".."
 			}
 			m.messages = append(m.messages, Message{
 				ID:        pm.MessageID,
-				Sender:    "contact",
-				Content:   content,
+				Sender:    senderName,
+				Content:   msgContent,
 				Timestamp: time.Unix(pm.Timestamp, 0),
 				IsOwn:     false,
 			})
@@ -687,7 +710,7 @@ func (m *AppModel) sendMessage() {
 
 	msg := Message{
 		ID:        fmt.Sprintf("msg-%d", time.Now().UnixNano()),
-		Sender:    "me",
+		Sender:    m.identity.DeviceID,
 		Content:   content,
 		Timestamp: time.Now(),
 		IsOwn:     true,

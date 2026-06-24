@@ -277,7 +277,7 @@ func sendMessage(recipientID, message string) error {
 	// Шифруем сообщение (в реальности — Double Ratchet)
 	// Сейчас: простая отправка
 	msg := Message{
-		Sender:  identity.DeviceID[:8],
+		Sender:  identity.DeviceID,
 		Content: message,
 	}
 
