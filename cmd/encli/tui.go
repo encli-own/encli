@@ -85,6 +85,8 @@ type Conversation struct {
 	DeviceIDs   []string
 }
 
+func (c Conversation) FilterValue() string { return c.Name }
+
 // keyMap — привязки клавиш.
 type keyMap struct {
 	Up       key.Binding
