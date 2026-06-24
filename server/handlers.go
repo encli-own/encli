@@ -344,10 +344,6 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 
 	// Сохраняем в mailbox
 	if err := s.storage.StoreMessage(req.MailboxID, msg); err != nil {
-		if err.Error() == fmt.Sprintf("mailbox not found: %s", req.MailboxID) {
-			writeError(w, http.StatusNotFound, ErrCodeMailboxNotFound, "mailbox not found")
-			return
-		}
 		writeError(w, http.StatusInternalServerError, ErrCodeInternalError, "storage error")
 		return
 	}

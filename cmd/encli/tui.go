@@ -4,6 +4,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"io"
 	"strings"
@@ -221,6 +222,24 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case pollMsg:
+		cmds = append(cmds, m.pollMessages())
+
+	case messagesPulledMsg:
+		for _, pm := range msg.messages {
+			payloadBytes, decErr := hex.DecodeString(pm.Payload)
+			content := pm.Payload
+			if decErr == nil {
+				content = string(payloadBytes)
+			}
+			m.messages = append(m.messages, Message{
+				ID:        pm.MessageID,
+				Sender:    "contact",
+				Content:   content,
+				Timestamp: time.Unix(pm.Timestamp, 0),
+				IsOwn:     false,
+			})
+		}
+		m.refreshViewport()
 		cmds = append(cmds, m.pollMessages())
 
 	case tickMsg:
@@ -535,11 +554,17 @@ func (m *AppModel) sendMessage() {
 	m.textarea.SetValue("")
 	m.textarea.Focus()
 
-	// Обновляем viewport
 	m.refreshViewport()
 
-	// Отправляем по сети (async)
-	go m.network.SendMessage(recipientID, msg)
+	if m.network.mailboxID == "" {
+		if err := m.network.Connect(m.serverAddr, m.identity); err != nil {
+			m.statusMessage = "Send failed: " + err.Error()
+			return
+		}
+	}
+	if err := m.network.SendMessage(recipientID, msg); err != nil {
+		m.statusMessage = "Send failed: " + err.Error()
+	}
 }
 
 func (m *AppModel) loadMessages(convID string) {
@@ -596,15 +621,29 @@ type pollMsg struct{}
 type tickMsg struct{}
 type statusMsg string
 type clearStatusMsg struct{}
+type messagesPulledMsg struct {
+	messages []PulledMessage
+}
 
 func (m *AppModel) pollMessages() tea.Cmd {
-	return tea.Tick(10*time.Second, func(t time.Time) tea.Msg {
-		// Poll server for new messages
-		if m.network != nil {
-			m.network.PullMessages()
+	return func() tea.Msg {
+		if m.network.mailboxID == "" {
+			if err := m.network.Connect(m.serverAddr, m.identity); err != nil {
+				time.Sleep(10 * time.Second)
+				return pollMsg{}
+			}
 		}
-		return pollMsg{}
-	})
+		msgs, err := m.network.PullMessages()
+		if err != nil {
+			time.Sleep(10 * time.Second)
+			return pollMsg{}
+		}
+		if len(msgs) == 0 {
+			time.Sleep(10 * time.Second)
+			return pollMsg{}
+		}
+		return messagesPulledMsg{messages: msgs}
+	}
 }
 
 func (m *AppModel) tick() tea.Cmd {

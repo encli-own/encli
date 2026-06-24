@@ -169,10 +169,21 @@ func (ms *MemoryStorage) GetMailbox(mailboxID string) (*Mailbox, bool) {
 }
 
 // StoreMessage сохраняет сообщение в mailbox.
+// Если mailbox не существует — создаёт его автоматически.
 func (ms *MemoryStorage) StoreMessage(mailboxID string, msg *Message) error {
 	mb, ok := ms.GetMailbox(mailboxID)
 	if !ok {
-		return fmt.Errorf("mailbox not found: %s", mailboxID)
+		ms.mu.Lock()
+		// Проверяем ещё раз под блокировкой (race condition)
+		if existing, exists := ms.mailboxes[mailboxID]; exists {
+			ms.mu.Unlock()
+			mb = existing
+		} else {
+			mb = NewMailbox(mailboxID, ms.maxMailboxSize)
+			ms.mailboxes[mailboxID] = mb
+			ms.accountCount++
+			ms.mu.Unlock()
+		}
 	}
 
 	msg.MailboxID = mailboxID
