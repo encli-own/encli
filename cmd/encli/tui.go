@@ -279,6 +279,7 @@ func (m *AppModel) updateChatList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.screen = ScreenChat
 			m.loadMessages(item.ID)
 			m.updateSizes()
+			m.textarea.Focus()
 		}
 
 	case key.Matches(msg, m.keys.NewChat):
@@ -309,12 +310,19 @@ func (m *AppModel) updateChat(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Back):
 		m.screen = ScreenChatList
+		m.textarea.Blur()
 
 	case key.Matches(msg, m.keys.Send):
 		m.sendMessage()
 
 	case key.Matches(msg, m.keys.Escape):
 		m.screen = ScreenChatList
+		m.textarea.Blur()
+
+	default:
+		var cmd tea.Cmd
+		m.textarea, cmd = m.textarea.Update(msg)
+		return m, cmd
 	}
 
 	return m, nil
