@@ -135,7 +135,7 @@ var defaultKeyMap = keyMap{
 		key.WithHelp("q/ctrl+c", "quit"),
 	),
 	Back: key.NewBinding(
-		key.WithKeys("esc", "left"),
+		key.WithKeys("esc"),
 		key.WithHelp("esc", "back"),
 	),
 	NewChat: key.NewBinding(
@@ -615,7 +615,7 @@ func (m *AppModel) viewSettings() string {
   Navigation:
     ↑/k, ↓/j     Navigate lists
     Enter         Select / open chat
-    Esc / ←       Go back
+    Esc           Go back
     n             New chat
     s             Settings
     d             Delete chat
@@ -623,7 +623,7 @@ func (m *AppModel) viewSettings() string {
 
   Chat:
     Ctrl+S        Send message
-    Tab / ← →    Switch settings tabs
+    Tab          Switch settings tabs
 
   Search (new chat):
     ↑/k, ↓/j     Navigate results
@@ -645,12 +645,16 @@ func (m *AppModel) viewSettings() string {
 `, m.serverAddr)
 	}
 
+	body := lipgloss.JoinVertical(lipgloss.Left, tabBar.String(), info)
+
 	content := lipgloss.NewStyle().
 		Width(m.width - 4).
 		Height(m.height - 6).
-		Render(lipgloss.JoinVertical(lipgloss.Left, tabBar.String(), info))
+		Render(body)
 
-	return lipgloss.JoinVertical(lipgloss.Left, header, content)
+	footer := subtitleStyle.Render(" Tab/Shift+Tab: switch tabs  |  Esc: back ")
+
+	return lipgloss.JoinVertical(lipgloss.Left, header, content, footer)
 }
 
 // --- Helpers ---
