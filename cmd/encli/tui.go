@@ -427,7 +427,11 @@ func (m *AppModel) viewNewChat() string {
 		if len(contacts) > 0 {
 			var lines []string
 			for _, c := range contacts {
-				lines = append(lines, fmt.Sprintf("  %s (%s)", c.Nickname, c.DeviceID[:16]))
+				shortID := c.DeviceID
+				if len(shortID) > 16 {
+					shortID = shortID[:16]
+				}
+				lines = append(lines, fmt.Sprintf("  %s (%s)", c.Nickname, shortID))
 			}
 			results = "\n" + strings.Join(lines, "\n")
 		}
@@ -462,7 +466,13 @@ func (m *AppModel) viewSettings() string {
   
   Press ESC to go back
 `,
-		m.identity.DeviceID[:16]+"...",
+		func() string {
+			s := m.identity.DeviceID
+			if len(s) > 16 {
+				return s[:16] + "..."
+			}
+			return s
+		}(),
 		m.identity.Fingerprint,
 		m.serverAddr,
 		m.ephemeral,

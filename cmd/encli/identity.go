@@ -233,7 +233,11 @@ func registerDevice(serverAddr string) error {
 	fmt.Printf("╠══════════════════════════════════════════════════════════╣\n")
 	fmt.Printf("║ Server:       %-42s ║\n", serverAddr)
 	fmt.Printf("║ Mailbox ID:   %-42s ║\n", client.mailboxID)
-	fmt.Printf("║ Session ID:   %-42s ║\n", client.sessionID[:16]+"...")
+	shortSession := client.sessionID
+	if len(shortSession) > 16 {
+		shortSession = shortSession[:16] + "..."
+	}
+	fmt.Printf("║ Session ID:   %-42s ║\n", shortSession)
 	fmt.Printf("╚══════════════════════════════════════════════════════════╝\n")
 
 	return nil
