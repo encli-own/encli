@@ -68,6 +68,16 @@ func (cs *ContactsStore) Add(nickname, deviceID string) error {
 	return cs.Save()
 }
 
+func (cs *ContactsStore) Delete(nickname string) error {
+	for i, c := range cs.contacts {
+		if strings.EqualFold(c.Nickname, nickname) {
+			cs.contacts = append(cs.contacts[:i], cs.contacts[i+1:]...)
+			return cs.Save()
+		}
+	}
+	return nil
+}
+
 func (cs *ContactsStore) Search(query string) []Contact {
 	query = strings.ToLower(query)
 	if query == "" {

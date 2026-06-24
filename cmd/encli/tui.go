@@ -65,6 +65,10 @@ type AppModel struct {
 	// Contacts
 	contacts *ContactsStore
 
+	// Search results (new chat)
+	searchResults  []searchResult
+	selectedResult int
+
 	// Settings
 	serverAddr string
 	ephemeral  bool
@@ -91,6 +95,12 @@ type Conversation struct {
 
 func (c Conversation) FilterValue() string { return c.Name }
 
+// searchResult — результат поиска контакта.
+type searchResult struct {
+	Nickname string
+	DeviceID string
+}
+
 // keyMap — привязки клавиш.
 type keyMap struct {
 	Up       key.Binding
@@ -102,6 +112,7 @@ type keyMap struct {
 	Settings key.Binding
 	Send     key.Binding
 	Escape   key.Binding
+	Delete   key.Binding
 }
 
 var defaultKeyMap = keyMap{
@@ -141,6 +152,10 @@ var defaultKeyMap = keyMap{
 		key.WithKeys("esc"),
 		key.WithHelp("esc", "cancel"),
 	),
+	Delete: key.NewBinding(
+		key.WithKeys("d"),
+		key.WithHelp("d", "delete contact"),
+	),
 }
 
 // NewAppModel создает новую модель приложения.
@@ -175,18 +190,20 @@ func NewAppModel(identity *crypto.Identity) *AppModel {
 	serverAddr := getSavedServerAddr()
 
 	return &AppModel{
-		identity:      identity,
-		screen:        ScreenChatList,
-		chatList:      chatList,
-		textarea:      ta,
-		viewport:      vp,
-		help:          h,
-		keys:          defaultKeyMap,
-		conversations: []Conversation{items[0].(Conversation)},
-		contacts:      contacts,
-		serverAddr:    serverAddr,
-		ephemeral:     true,
-		network:       NewClientNetwork(),
+		identity:       identity,
+		screen:         ScreenChatList,
+		chatList:       chatList,
+		textarea:       ta,
+		viewport:       vp,
+		help:           h,
+		keys:           defaultKeyMap,
+		conversations:  []Conversation{items[0].(Conversation)},
+		searchResults:  nil,
+		selectedResult: 0,
+		contacts:       contacts,
+		serverAddr:     serverAddr,
+		ephemeral:      true,
+		network:        NewClientNetwork(),
 	}
 }
 
@@ -311,6 +328,8 @@ func (m *AppModel) updateChatList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case key.Matches(msg, m.keys.NewChat):
+		m.searchResults = nil
+		m.selectedResult = 0
 		m.screen = ScreenNewChat
 		m.textarea.Focus()
 		m.textarea.Reset()
@@ -318,6 +337,14 @@ func (m *AppModel) updateChatList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, m.keys.Settings):
 		m.screen = ScreenSettings
+
+	case key.Matches(msg, m.keys.Delete):
+		if item, ok := m.chatList.SelectedItem().(Conversation); ok && item.ID != "welcome" {
+			idx := m.chatList.Index()
+			m.conversations = append(m.conversations[:idx], m.conversations[idx+1:]...)
+			m.chatList.RemoveItem(idx)
+			m.contacts.Delete(item.Name)
+		}
 
 	default:
 		var cmd tea.Cmd
@@ -405,70 +432,110 @@ func (m *AppModel) updateNewChat(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.screen = ScreenChatList
 		m.textarea.Blur()
 		m.textarea.Reset()
+		m.searchResults = nil
+		m.selectedResult = 0
 
 	case key.Matches(msg, m.keys.Enter):
 		query := strings.TrimSpace(m.textarea.Value())
 		if query == "" {
 			return m, nil
 		}
-		deviceID, err := m.contacts.Resolve(query)
-		if err != nil {
+
+		var deviceID string
+		var nickname string
+
+		if len(m.searchResults) > 0 {
+			sel := m.searchResults[m.selectedResult]
+			deviceID = sel.DeviceID
+			nickname = sel.Nickname
+		} else {
 			deviceID = query
-		}
-		if m.serverAddr != "" && len(deviceID) < 32 {
-			remoteID := searchDirectory(m.serverAddr, query)
-			if remoteID != "" {
-				deviceID = remoteID
+			nickname = query
+			if m.serverAddr != "" && len(deviceID) < 32 {
+				remoteID := searchDirectory(m.serverAddr, query)
+				if remoteID != "" {
+					deviceID = remoteID
+				}
 			}
 		}
-		m.contacts.Add(query, deviceID)
+
+		m.contacts.Add(nickname, deviceID)
 		conv := Conversation{
 			ID:   deviceID,
-			Name: query,
+			Name: nickname,
 		}
 		m.conversations = append(m.conversations, conv)
 		m.chatList.InsertItem(len(m.conversations)-1, conv)
 		m.screen = ScreenChatList
 		m.textarea.Blur()
 		m.textarea.Reset()
+		m.searchResults = nil
+		m.selectedResult = 0
 
 	default:
+		if len(m.searchResults) > 0 && (key.Matches(msg, m.keys.Up) || key.Matches(msg, m.keys.Down)) {
+			if key.Matches(msg, m.keys.Up) && m.selectedResult > 0 {
+				m.selectedResult--
+			}
+			if key.Matches(msg, m.keys.Down) && m.selectedResult < len(m.searchResults)-1 {
+				m.selectedResult++
+			}
+			return m, nil
+		}
 		var cmd tea.Cmd
+		oldVal := m.textarea.Value()
 		m.textarea, cmd = m.textarea.Update(msg)
+		if m.textarea.Value() != oldVal {
+			m.updateSearchResults()
+		}
 		return m, cmd
 	}
 	return m, nil
 }
 
+func (m *AppModel) updateSearchResults() {
+	query := strings.TrimSpace(m.textarea.Value())
+	m.selectedResult = 0
+	if query == "" {
+		m.searchResults = nil
+		return
+	}
+	contacts := m.contacts.Search(query)
+	m.searchResults = make([]searchResult, len(contacts))
+	for i, c := range contacts {
+		m.searchResults[i] = searchResult{Nickname: c.Nickname, DeviceID: c.DeviceID}
+	}
+}
+
 func (m *AppModel) viewNewChat() string {
 	header := titleStyle.Render(" New Chat ") + " " + subtitleStyle.Render("Enter nickname or device ID")
+
+	var b strings.Builder
+	b.WriteString("\n  Enter nickname or device ID:\n\n")
+
+	if len(m.searchResults) > 0 {
+		for i, r := range m.searchResults {
+			shortID := r.DeviceID
+			if len(shortID) > 16 {
+				shortID = shortID[:16]
+			}
+			line := fmt.Sprintf("  %s (%s)", r.Nickname, shortID)
+			if i == m.selectedResult {
+				b.WriteString(selectedItemStyle.Render("▸ "+line) + "\n")
+			} else {
+				b.WriteString("  " + line + "\n")
+			}
+		}
+	}
 
 	content := lipgloss.NewStyle().
 		Width(m.width - 4).
 		Height(m.height - 10).
-		Render("\n  Enter nickname or device ID:")
-
-	results := ""
-	query := strings.TrimSpace(m.textarea.Value())
-	if query != "" {
-		contacts := m.contacts.Search(query)
-		if len(contacts) > 0 {
-			var lines []string
-			for _, c := range contacts {
-				shortID := c.DeviceID
-				if len(shortID) > 16 {
-					shortID = shortID[:16]
-				}
-				lines = append(lines, fmt.Sprintf("  %s (%s)", c.Nickname, shortID))
-			}
-			results = "\n" + strings.Join(lines, "\n")
-		}
-	}
+		Render(b.String())
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,
 		content,
-		results,
 		m.textarea.View(),
 	)
 }
