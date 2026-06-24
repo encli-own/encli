@@ -61,6 +61,9 @@ type AppModel struct {
 	// Network
 	network *ClientNetwork
 
+	// Contacts
+	contacts *ContactsStore
+
 	// Settings
 	serverAddr string
 	ephemeral  bool
@@ -165,6 +168,9 @@ func NewAppModel(identity *crypto.Identity) *AppModel {
 	// Help
 	h := help.New()
 
+	contacts := NewContactsStore()
+	contacts.Load()
+
 	return &AppModel{
 		identity:      identity,
 		screen:        ScreenChatList,
@@ -174,6 +180,7 @@ func NewAppModel(identity *crypto.Identity) *AppModel {
 		help:          h,
 		keys:          defaultKeyMap,
 		conversations: []Conversation{items[0].(Conversation)},
+		contacts:      contacts,
 		ephemeral:     true,
 		network:       NewClientNetwork(),
 	}
@@ -283,6 +290,9 @@ func (m *AppModel) updateChatList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, m.keys.NewChat):
 		m.screen = ScreenNewChat
+		m.textarea.Focus()
+		m.textarea.Reset()
+		m.textarea.Placeholder = "Enter nickname or device ID..."
 
 	case key.Matches(msg, m.keys.Settings):
 		m.screen = ScreenSettings
@@ -371,21 +381,63 @@ func (m *AppModel) updateNewChat(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Back), key.Matches(msg, m.keys.Escape):
 		m.screen = ScreenChatList
+		m.textarea.Blur()
+		m.textarea.Reset()
+
+	case key.Matches(msg, m.keys.Enter):
+		query := strings.TrimSpace(m.textarea.Value())
+		if query == "" {
+			return m, nil
+		}
+		deviceID, err := m.contacts.Resolve(query)
+		if err != nil {
+			return m, nil
+		}
+		m.contacts.Add(query, deviceID)
+		conv := Conversation{
+			ID:   deviceID,
+			Name: query,
+		}
+		m.conversations = append(m.conversations, conv)
+		m.chatList.InsertItem(len(m.conversations)-1, conv)
+		m.screen = ScreenChatList
+		m.textarea.Blur()
+		m.textarea.Reset()
+
+	default:
+		var cmd tea.Cmd
+		m.textarea, cmd = m.textarea.Update(msg)
+		return m, cmd
 	}
 	return m, nil
 }
 
 func (m *AppModel) viewNewChat() string {
-	header := titleStyle.Render(" New Chat ") + " " + subtitleStyle.Render("Enter device ID or fingerprint")
+	header := titleStyle.Render(" New Chat ") + " " + subtitleStyle.Render("Enter nickname or device ID")
 
 	content := lipgloss.NewStyle().
 		Width(m.width - 4).
-		Height(m.height - 6).
-		Render("\n  Enter recipient device ID:\n\n  [________________________]")
+		Height(m.height - 10).
+		Render("\n  Enter nickname or device ID:")
+
+	results := ""
+	query := strings.TrimSpace(m.textarea.Value())
+	if query != "" {
+		contacts := m.contacts.Search(query)
+		if len(contacts) > 0 {
+			var lines []string
+			for _, c := range contacts {
+				lines = append(lines, fmt.Sprintf("  %s (%s)", c.Nickname, c.DeviceID[:16]))
+			}
+			results = "\n" + strings.Join(lines, "\n")
+		}
+	}
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,
 		content,
+		results,
+		m.textarea.View(),
 	)
 }
 
