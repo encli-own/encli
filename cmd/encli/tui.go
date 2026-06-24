@@ -171,6 +171,8 @@ func NewAppModel(identity *crypto.Identity) *AppModel {
 	contacts := NewContactsStore()
 	contacts.Load()
 
+	serverAddr := getSavedServerAddr()
+
 	return &AppModel{
 		identity:      identity,
 		screen:        ScreenChatList,
@@ -181,6 +183,7 @@ func NewAppModel(identity *crypto.Identity) *AppModel {
 		keys:          defaultKeyMap,
 		conversations: []Conversation{items[0].(Conversation)},
 		contacts:      contacts,
+		serverAddr:    serverAddr,
 		ephemeral:     true,
 		network:       NewClientNetwork(),
 	}
@@ -391,7 +394,13 @@ func (m *AppModel) updateNewChat(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		deviceID, err := m.contacts.Resolve(query)
 		if err != nil {
-			return m, nil
+			deviceID = query
+		}
+		if m.serverAddr != "" && len(deviceID) < 32 {
+			remoteID := searchDirectory(m.serverAddr, query)
+			if remoteID != "" {
+				deviceID = remoteID
+			}
 		}
 		m.contacts.Add(query, deviceID)
 		conv := Conversation{

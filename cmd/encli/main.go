@@ -48,6 +48,7 @@ func init() {
 	rootCmd.AddCommand(sendCmd)
 	rootCmd.AddCommand(keysCmd)
 	rootCmd.AddCommand(serverInfoCmd)
+	rootCmd.AddCommand(profileCmd)
 }
 
 var versionCmd = &cobra.Command{
@@ -122,9 +123,79 @@ var serverInfoCmd = &cobra.Command{
 	},
 }
 
+var profileCmd = &cobra.Command{
+	Use:   "profile",
+	Short: "Manage your profile (nickname discovery)",
+}
+
+var profilePublishCmd = &cobra.Command{
+	Use:   "publish [nickname]",
+	Short: "Publish your nickname to the server directory",
+	Long:  `Publish your nickname so others can find you by searching. Nickname is encrypted — server never sees it.`,
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		server := serverAddr
+		if server == "" {
+			server = getSavedServerAddr()
+		}
+		if server == "" {
+			fmt.Fprintf(os.Stderr, "Server address required. Use --server or register first.\n")
+			os.Exit(1)
+		}
+		if err := publishProfile(server, args[0]); err != nil {
+			fmt.Fprintf(os.Stderr, "Publish failed: %v\n", err)
+			os.Exit(1)
+		}
+	},
+}
+
+var profileLookupCmd = &cobra.Command{
+	Use:   "lookup [nickname]",
+	Short: "Look up a profile by nickname",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		server := serverAddr
+		if server == "" {
+			server = getSavedServerAddr()
+		}
+		if server == "" {
+			fmt.Fprintf(os.Stderr, "Server address required.\n")
+			os.Exit(1)
+		}
+		if err := lookupProfile(server, args[0]); err != nil {
+			fmt.Fprintf(os.Stderr, "Lookup failed: %v\n", err)
+			os.Exit(1)
+		}
+	},
+}
+
+var profileSearchCmd = &cobra.Command{
+	Use:   "search [query]",
+	Short: "Search profiles by nickname",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		server := serverAddr
+		if server == "" {
+			server = getSavedServerAddr()
+		}
+		if server == "" {
+			fmt.Fprintf(os.Stderr, "Server address required.\n")
+			os.Exit(1)
+		}
+		if err := searchProfiles(server, args[0]); err != nil {
+			fmt.Fprintf(os.Stderr, "Search failed: %v\n", err)
+			os.Exit(1)
+		}
+	},
+}
+
 func init() {
 	keysCmd.AddCommand(keysGenerateCmd)
 	keysCmd.AddCommand(keysShowCmd)
+
+	profileCmd.AddCommand(profilePublishCmd)
+	profileCmd.AddCommand(profileLookupCmd)
+	profileCmd.AddCommand(profileSearchCmd)
 }
 
 func main() {
@@ -162,59 +233,59 @@ func runTUI() {
 // Styles для TUI.
 var (
 	titleStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#7D56F4")).
-		Background(lipgloss.Color("#1A1A2E")).
-		Padding(0, 1)
+			Bold(true).
+			Foreground(lipgloss.Color("#7D56F4")).
+			Background(lipgloss.Color("#1A1A2E")).
+			Padding(0, 1)
 
 	subtitleStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#A0A0B0"))
+			Foreground(lipgloss.Color("#A0A0B0"))
 
 	senderStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#6FCF97"))
+			Bold(true).
+			Foreground(lipgloss.Color("#6FCF97"))
 
 	ownMessageStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#F2F2F2")).
-		Background(lipgloss.Color("#2D2D44")).
-		Padding(0, 1).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#7D56F4"))
+			Foreground(lipgloss.Color("#F2F2F2")).
+			Background(lipgloss.Color("#2D2D44")).
+			Padding(0, 1).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#7D56F4"))
 
 	otherMessageStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#F2F2F2")).
-		Background(lipgloss.Color("#1E1E30")).
-		Padding(0, 1).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#4A5568"))
+				Foreground(lipgloss.Color("#F2F2F2")).
+				Background(lipgloss.Color("#1E1E30")).
+				Padding(0, 1).
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("#4A5568"))
 
 	timestampStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#6B7280")).
-		Italic(true)
+			Foreground(lipgloss.Color("#6B7280")).
+			Italic(true)
 
 	statusBarStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FFFFFF")).
-		Background(lipgloss.Color("#7D56F4")).
-		Padding(0, 1)
+			Foreground(lipgloss.Color("#FFFFFF")).
+			Background(lipgloss.Color("#7D56F4")).
+			Padding(0, 1)
 
 	listStyle = lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("#4A5568")).
-		Padding(0, 1)
+			Border(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("#4A5568")).
+			Padding(0, 1)
 
 	selectedItemStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#7D56F4")).
-		Background(lipgloss.Color("#2D2D44"))
+				Bold(true).
+				Foreground(lipgloss.Color("#7D56F4")).
+				Background(lipgloss.Color("#2D2D44"))
 
 	inputStyle = lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("#7D56F4"))
+			Border(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("#7D56F4"))
 
 	errorStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#EF4444")).
-		Bold(true)
+			Foreground(lipgloss.Color("#EF4444")).
+			Bold(true)
 
 	successStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#10B981"))
+			Foreground(lipgloss.Color("#10B981"))
 )

@@ -543,6 +543,116 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusNotImplemented, "NOT_IMPLEMENTED", "WebSocket upgrade not implemented in this version")
 }
 
+// --- Directory Handlers ---
+
+// handleDirectoryPublish публикует зашифрованный профиль в директорию.
+// POST /v1/directory/publish
+// Body: {"nickname":"alice","encrypted_profile":"hex..."}
+// Сервер хранит только blinded_id → encrypted_profile, не зная nickname.
+func (s *Server) handleDirectoryPublish(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Only POST allowed")
+		return
+	}
+
+	var req struct {
+		Nickname string `json:"nickname"`
+		Profile  string `json:"encrypted_profile"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, ErrCodeInvalidRequest, "invalid JSON")
+		return
+	}
+
+	if req.Nickname == "" || req.Profile == "" {
+		writeError(w, http.StatusBadRequest, ErrCodeInvalidRequest, "nickname and encrypted_profile required")
+		return
+	}
+
+	entry, err := s.directory.Publish(req.Nickname, req.Profile)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, ErrCodeInternalError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"blinded_id": entry.BlindedID,
+			"timestamp":  entry.Timestamp,
+		},
+	})
+}
+
+// handleDirectoryLookup ищет профиль по blinded_id (точное совпадение).
+// GET /v1/directory/lookup?blinded_id=<hex>
+func (s *Server) handleDirectoryLookup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Only GET allowed")
+		return
+	}
+
+	blindedID := r.URL.Query().Get("blinded_id")
+	if blindedID == "" {
+		writeError(w, http.StatusBadRequest, ErrCodeInvalidRequest, "blinded_id required")
+		return
+	}
+
+	entry := s.directory.Lookup(blindedID)
+	if entry == nil {
+		writeError(w, http.StatusNotFound, "NOT_FOUND", "profile not found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"profile":   entry.Profile,
+			"timestamp": entry.Timestamp,
+		},
+	})
+}
+
+// handleDirectorySearch ищет профили по префиксу blinded_id.
+// GET /v1/directory/search?q=<hex_prefix>
+func (s *Server) handleDirectorySearch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Only GET allowed")
+		return
+	}
+
+	query := r.URL.Query().Get("q")
+	if query == "" {
+		writeError(w, http.StatusBadRequest, ErrCodeInvalidRequest, "search query required")
+		return
+	}
+
+	results := s.directory.Search(query)
+
+	type resultItem struct {
+		BlindedID string `json:"blinded_id"`
+		Profile   string `json:"profile"`
+		Timestamp int64  `json:"timestamp"`
+	}
+
+	items := make([]resultItem, 0, len(results))
+	for _, entry := range results {
+		items = append(items, resultItem{
+			BlindedID: entry.BlindedID,
+			Profile:   entry.Profile,
+			Timestamp: entry.Timestamp,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"results": items,
+			"count":   len(items),
+		},
+	})
+}
+
 // --- Helper functions ---
 
 // getClientIP возвращает IP клиента.

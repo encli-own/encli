@@ -42,6 +42,9 @@ type Server struct {
 	// API ключ для /stats
 	apiKey string
 
+	// Directory store
+	directory *DirectoryStore
+
 	// Stop channel
 	stopCh chan struct{}
 }
@@ -67,6 +70,7 @@ func NewServer(config *Config) (*Server, error) {
 		deviceKeys:     make(map[string][]byte),
 		rateLimiter:    NewRateLimiter(config.Server.RateLimit.RequestsPerSecond, config.Server.RateLimit.Burst),
 		apiKey:         generateAPIKey(),
+		directory:      NewDirectoryStore(),
 		stopCh:         make(chan struct{}),
 	}
 
@@ -86,6 +90,11 @@ func NewServer(config *Config) (*Server, error) {
 
 	// Noise endpoint
 	mux.HandleFunc("/v1/noise", s.handleNoise)
+
+	// Directory endpoints (profile/nickname discovery)
+	mux.HandleFunc("/v1/directory/publish", s.handleDirectoryPublish)
+	mux.HandleFunc("/v1/directory/lookup", s.handleDirectoryLookup)
+	mux.HandleFunc("/v1/directory/search", s.handleDirectorySearch)
 
 	// Admin endpoints
 	mux.HandleFunc("/v1/stats", s.handleStats)

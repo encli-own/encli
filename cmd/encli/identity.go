@@ -315,3 +315,16 @@ func showServerInfo(serverAddr string) error {
 
 	return nil
 }
+
+func getSavedServerAddr() string {
+	configPath := filepath.Join(GetKeysDir(), "..", "client.json")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return ""
+	}
+	var config map[string]string
+	if err := json.Unmarshal(data, &config); err != nil {
+		return ""
+	}
+	return config["server_addr"]
+}
