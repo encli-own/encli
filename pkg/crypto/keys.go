@@ -73,6 +73,38 @@ func GenerateIdentity() (*Identity, error) {
 	}, nil
 }
 
+// IdentityFromSeed восстанавливает identity из 32-байтового seed Ed25519.
+func IdentityFromSeed(seed []byte) (*Identity, error) {
+	if len(seed) != ed25519.SeedSize {
+		return nil, fmt.Errorf("invalid seed length: %d", len(seed))
+	}
+
+	privKey := ed25519.NewKeyFromSeed(seed)
+	pubKey := privKey.Public().(ed25519.PublicKey)
+
+	kp := &KeyPair{
+		Ed25519Private: privKey,
+		Ed25519Public:  pubKey,
+	}
+
+	var x25519Priv [32]byte
+	copy(x25519Priv[:], seed)
+	clampScalar(x25519Priv[:])
+	var x25519Pub [32]byte
+	curve25519.ScalarBaseMult(&x25519Pub, &x25519Priv)
+	kp.X25519Private = x25519Priv
+	kp.X25519Public = x25519Pub
+
+	deviceID := sha256.Sum256(pubKey)
+	fingerprint := computeFingerprint(pubKey)
+
+	return &Identity{
+		KeyPair:     *kp,
+		DeviceID:    hex.EncodeToString(deviceID[:]),
+		Fingerprint: fingerprint,
+	}, nil
+}
+
 // Sign создает Ed25519 подпись сообщения.
 func (kp *KeyPair) Sign(message []byte) []byte {
 	return ed25519.Sign(kp.Ed25519Private, message)

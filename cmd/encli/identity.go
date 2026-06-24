@@ -88,9 +88,6 @@ func loadOrCreateIdentity() (*crypto.Identity, error) {
 
 // loadIdentityFromFile загружает identity из файла.
 func loadIdentityFromFile(path string) (*crypto.Identity, error) {
-	// В реальной реализации: расшифровка с мастер-паролем
-	// Сейчас: простая загрузка JSON (demo)
-
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading identity file: %w", err)
@@ -101,31 +98,34 @@ func loadIdentityFromFile(path string) (*crypto.Identity, error) {
 		return nil, fmt.Errorf("parsing identity: %w", err)
 	}
 
-	// В реальности: расшифровка EncryptedPrivateKey с мастер-паролем
-	// и реконструкция Identity
-	// Здесь: placeholder — генерируем новую (для демо)
+	if len(stored.EncryptedPrivateKey) == 32 {
+		fmt.Println("Loading existing identity...")
+		identity, err := crypto.IdentityFromSeed(stored.EncryptedPrivateKey)
+		if err != nil {
+			return nil, fmt.Errorf("reconstructing identity: %w", err)
+		}
+		return identity, nil
+	}
 
-	fmt.Println("Loading existing identity...")
-	// TODO: Implement secure key loading with master password
-
-	// For now: generate a new identity each time (demo mode)
+	fmt.Println("No saved key found, generating new identity...")
 	identity, err := crypto.GenerateIdentity()
 	if err != nil {
 		return nil, err
 	}
-
+	if err := saveIdentityToFile(identity, path); err != nil {
+		return nil, fmt.Errorf("saving new identity: %w", err)
+	}
 	return identity, nil
 }
 
-// saveIdentityToFile сохраняет identity в файл (зашифрованную).
+// saveIdentityToFile сохраняет identity в файл.
+// TODO: шифровать EncryptedPrivateKey с мастер-паролем
 func saveIdentityToFile(identity *crypto.Identity, path string) error {
-	// В реальной реализации: шифрование с мастер-паролем
-	// Сейчас: простое JSON (demo — НЕ БЕЗОПАСНО для production!)
-
 	stored := StoredIdentity{
-		DeviceID:    identity.DeviceID,
-		Fingerprint: identity.Fingerprint,
-		Version:     1,
+		DeviceID:            identity.DeviceID,
+		Fingerprint:         identity.Fingerprint,
+		EncryptedPrivateKey: identity.Ed25519Private.Seed(),
+		Version:             1,
 	}
 
 	data, err := json.MarshalIndent(stored, "", "  ")
