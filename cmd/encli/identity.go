@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/encli-own/encli/pkg/crypto"
 )
@@ -317,14 +318,45 @@ func showServerInfo(serverAddr string) error {
 }
 
 func getSavedServerAddr() string {
+	cfg := loadClientConfig()
+	if cfg == nil {
+		return ""
+	}
+	return cfg["server_addr"]
+}
+
+func saveNickname(nickname string) error {
+	cfg := loadClientConfig()
+	if cfg == nil {
+		cfg = make(map[string]string)
+	}
+	cfg["nickname"] = nickname
+	cfg["nickname_updated"] = time.Now().Format(time.RFC3339)
+	configPath := filepath.Join(GetKeysDir(), "..", "client.json")
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(configPath, data, 0600)
+}
+
+func getNickname() string {
+	cfg := loadClientConfig()
+	if cfg == nil {
+		return ""
+	}
+	return cfg["nickname"]
+}
+
+func loadClientConfig() map[string]string {
 	configPath := filepath.Join(GetKeysDir(), "..", "client.json")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		return ""
+		return nil
 	}
 	var config map[string]string
 	if err := json.Unmarshal(data, &config); err != nil {
-		return ""
+		return nil
 	}
-	return config["server_addr"]
+	return config
 }

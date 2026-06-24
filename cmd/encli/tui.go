@@ -70,9 +70,9 @@ type AppModel struct {
 	selectedResult int
 
 	// Settings
-	serverAddr   string
-	ephemeral    bool
-	settingsTab  int // 0=Identity, 1=Hotkeys, 2=Server
+	serverAddr  string
+	ephemeral   bool
+	settingsTab int // 0=Identity, 1=Hotkeys, 2=Server
 }
 
 // Message — сообщение в чате.
@@ -581,7 +581,7 @@ func (m *AppModel) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m *AppModel) viewSettings() string {
 	header := titleStyle.Render(" Settings ")
-	tabs := []string{" Identity ", " Hotkeys ", " Server " }
+	tabs := []string{" Identity ", " Hotkeys ", " Server "}
 	var tabBar strings.Builder
 	for i, t := range tabs {
 		if i == m.settingsTab {
@@ -608,7 +608,7 @@ func (m *AppModel) viewSettings() string {
   Nickname:     %s
 
   Use "encli profile publish <nickname>" to set your nickname.
-`, shortID, m.identity.Fingerprint, m.serverAddr, m.ephemeral, m.contacts.Name())
+`, shortID, m.identity.Fingerprint, m.serverAddr, m.ephemeral, getNickname())
 
 	case 1:
 		info = `

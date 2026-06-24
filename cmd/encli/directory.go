@@ -110,6 +110,10 @@ func publishProfile(serverAddr, nickname string) error {
 
 	_ = result.Data["blinded_id"]
 
+	if err := saveNickname(nickname); err != nil {
+		return fmt.Errorf("saving nickname locally: %w", err)
+	}
+
 	fmt.Printf("  Success! Profile published.\n")
 	fmt.Printf("  Others can find you by searching for '%s'\n", nickname)
 	return nil
