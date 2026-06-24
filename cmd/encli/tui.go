@@ -340,10 +340,20 @@ func (m *AppModel) updateChatList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, m.keys.Delete):
 		if item, ok := m.chatList.SelectedItem().(Conversation); ok && item.ID != "welcome" {
-			idx := m.chatList.Index()
-			m.conversations = append(m.conversations[:idx], m.conversations[idx+1:]...)
-			m.chatList.RemoveItem(idx)
+			for i, c := range m.conversations {
+				if c.ID == item.ID {
+					m.conversations = append(m.conversations[:i], m.conversations[i+1:]...)
+					break
+				}
+			}
+			for i, c := range m.chatList.Items() {
+				if conv, ok := c.(Conversation); ok && conv.ID == item.ID {
+					m.chatList.RemoveItem(i)
+					break
+				}
+			}
 			m.contacts.Delete(item.Name)
+			m.statusMessage = "Contact deleted: " + item.Name
 		}
 
 	default:
