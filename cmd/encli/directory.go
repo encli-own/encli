@@ -95,22 +95,22 @@ func publishProfile(serverAddr, nickname string) error {
 	defer resp.Body.Close()
 
 	var result struct {
-		Success bool `json:"success"`
-		Data    struct {
-			BlindedID string `json:"blinded_id"`
-			Timestamp int64  `json:"timestamp"`
-		} `json:"data"`
-		Error string `json:"error"`
+		Success bool                   `json:"success"`
+		Data    map[string]interface{} `json:"data"`
+		Error   string                 `json:"error"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	dec := json.NewDecoder(resp.Body)
+	dec.UseNumber()
+	if err = dec.Decode(&result); err != nil {
 		return fmt.Errorf("decoding response: %w", err)
 	}
 	if !result.Success {
 		return fmt.Errorf("server error: %s", result.Error)
 	}
 
+	_ = result.Data["blinded_id"]
+
 	fmt.Printf("  Success! Profile published.\n")
-	fmt.Printf("  Blinded ID: %s\n", result.Data.BlindedID)
 	fmt.Printf("  Others can find you by searching for '%s'\n", nickname)
 	return nil
 }
@@ -127,21 +127,21 @@ func lookupProfile(serverAddr, nickname string) error {
 	defer resp.Body.Close()
 
 	var result struct {
-		Success bool `json:"success"`
-		Data    struct {
-			Profile   string `json:"profile"`
-			Timestamp int64  `json:"timestamp"`
-		} `json:"data"`
-		Error string `json:"error"`
+		Success bool                   `json:"success"`
+		Data    map[string]interface{} `json:"data"`
+		Error   string                 `json:"error"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	dec := json.NewDecoder(resp.Body)
+	dec.UseNumber()
+	if err = dec.Decode(&result); err != nil {
 		return fmt.Errorf("decoding response: %w", err)
 	}
 	if !result.Success {
 		return fmt.Errorf("profile not found for '%s'", nickname)
 	}
 
-	profile, err := decryptProfile(nickname, result.Data.Profile)
+	profileEnc, _ := result.Data["profile"].(string)
+	profile, err := decryptProfile(nickname, profileEnc)
 	if err != nil {
 		return fmt.Errorf("decryption failed (wrong nickname?): %w", err)
 	}
@@ -170,32 +170,36 @@ func searchProfiles(serverAddr, query string) error {
 	defer resp.Body.Close()
 
 	var result struct {
-		Success bool `json:"success"`
-		Data    struct {
-			Results []struct {
-				BlindedID string `json:"blinded_id"`
-				Profile   string `json:"profile"`
-				Timestamp int64  `json:"timestamp"`
-			} `json:"results"`
-			Count int `json:"count"`
-		} `json:"data"`
-		Error string `json:"error"`
+		Success bool                   `json:"success"`
+		Data    map[string]interface{} `json:"data"`
+		Error   string                 `json:"error"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	dec := json.NewDecoder(resp.Body)
+	dec.UseNumber()
+	if err = dec.Decode(&result); err != nil {
 		return fmt.Errorf("decoding response: %w", err)
 	}
 	if !result.Success {
 		return fmt.Errorf("server error: %s", result.Error)
 	}
 
-	if result.Data.Count == 0 {
+	rawResults, _ := result.Data["results"].([]interface{})
+	count, _ := result.Data["count"].(json.Number)
+	countInt, _ := count.Int64()
+
+	if countInt == 0 || len(rawResults) == 0 {
 		fmt.Printf("No profiles found matching '%s'\n", query)
 		return nil
 	}
 
-	fmt.Printf("\nFound %d profile(s):\n\n", result.Data.Count)
-	for i, entry := range result.Data.Results {
-		profile, err := decryptProfile(query, entry.Profile)
+	fmt.Printf("\nFound %d profile(s):\n\n", countInt)
+	for i, raw := range rawResults {
+		entry, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		profileEnc, _ := entry["profile"].(string)
+		profile, err := decryptProfile(query, profileEnc)
 		if err != nil {
 			continue
 		}
@@ -219,20 +223,21 @@ func searchDirectory(serverAddr, nickname string) string {
 	defer resp.Body.Close()
 
 	var result struct {
-		Success bool `json:"success"`
-		Data    struct {
-			Profile   string `json:"profile"`
-			Timestamp int64  `json:"timestamp"`
-		} `json:"data"`
+		Success bool                   `json:"success"`
+		Data    map[string]interface{} `json:"data"`
+		Error   string                 `json:"error"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	dec := json.NewDecoder(resp.Body)
+	dec.UseNumber()
+	if err = dec.Decode(&result); err != nil {
 		return ""
 	}
 	if !result.Success {
 		return ""
 	}
 
-	profile, err := decryptProfile(nickname, result.Data.Profile)
+	profileEnc, _ := result.Data["profile"].(string)
+	profile, err := decryptProfile(nickname, profileEnc)
 	if err != nil {
 		return ""
 	}
