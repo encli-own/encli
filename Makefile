@@ -123,13 +123,13 @@ docker:
 ## docker-run: Запуск сервера в Docker
 docker-run:
 	@echo "$(BLUE)→ Запуск сервера в Docker...$(NC)"
-	docker-compose -f deployments/docker/docker-compose.yml up -d
+	docker compose -f deployments/docker/docker-compose.yml up -d
 	@echo "$(GREEN)✓ Сервер запущен$(NC)"
 
 ## docker-stop: Остановка Docker контейнеров
 docker-stop:
 	@echo "$(YELLOW)→ Остановка контейнеров...$(NC)"
-	docker-compose -f deployments/docker/docker-compose.yml down
+	docker compose -f deployments/docker/docker-compose.yml down
 	@echo "$(GREEN)✓ Контейнеры остановлены$(NC)"
 
 ## run-server: Запуск сервера локально (для разработки)
