@@ -70,8 +70,9 @@ type AppModel struct {
 	selectedResult int
 
 	// Settings
-	serverAddr string
-	ephemeral  bool
+	serverAddr   string
+	ephemeral    bool
+	settingsTab  int // 0=Identity, 1=Hotkeys, 2=Server
 }
 
 // Message — сообщение в чате.
@@ -568,37 +569,86 @@ func (m *AppModel) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.Back), key.Matches(msg, m.keys.Escape):
 		m.screen = ScreenChatList
+	case key.Matches(msg, m.keys.Quit):
+		return m, tea.Quit
+	case msg.Type == tea.KeyTab:
+		m.settingsTab = (m.settingsTab + 1) % 3
+	case msg.Type == tea.KeyShiftTab:
+		m.settingsTab = (m.settingsTab - 1 + 3) % 3
 	}
 	return m, nil
 }
 
 func (m *AppModel) viewSettings() string {
 	header := titleStyle.Render(" Settings ")
+	tabs := []string{" Identity ", " Hotkeys ", " Server " }
+	var tabBar strings.Builder
+	for i, t := range tabs {
+		if i == m.settingsTab {
+			tabBar.WriteString(selectedItemStyle.Render(t))
+		} else {
+			tabBar.WriteString(lipgloss.NewStyle().Padding(0, 1).Render(t))
+		}
+		tabBar.WriteString(" ")
+	}
 
-	info := fmt.Sprintf(`
+	info := ""
+	switch m.settingsTab {
+	case 0:
+		shortID := m.identity.DeviceID
+		if len(shortID) > 24 {
+			shortID = shortID[:24] + "..."
+		}
+		info = fmt.Sprintf(`
+
   Device ID:    %s
   Fingerprint:  %s
   Server:       %s
   Ephemeral:    %v
-  
-  Press ESC to go back
-`,
-		func() string {
-			s := m.identity.DeviceID
-			if len(s) > 16 {
-				return s[:16] + "..."
-			}
-			return s
-		}(),
-		m.identity.Fingerprint,
-		m.serverAddr,
-		m.ephemeral,
-	)
+  Nickname:     %s
+
+  Use "encli profile publish <nickname>" to set your nickname.
+`, shortID, m.identity.Fingerprint, m.serverAddr, m.ephemeral, m.contacts.Name())
+
+	case 1:
+		info = `
+  Navigation:
+    ↑/k, ↓/j     Navigate lists
+    Enter         Select / open chat
+    Esc / ←       Go back
+    n             New chat
+    s             Settings
+    d             Delete chat
+    q / Ctrl+C    Quit
+
+  Chat:
+    Ctrl+S        Send message
+    Tab / ← →    Switch settings tabs
+
+  Search (new chat):
+    ↑/k, ↓/j     Navigate results
+    Enter         Select contact
+    Ctrl+D        Delete contact from local storage
+`
+	case 2:
+		info = fmt.Sprintf(`
+  Server:       %s
+
+  This server is a blind relay node.
+  It cannot read your messages or see your contacts.
+
+  Message storage is ephemeral:
+  messages are deleted after being pulled.
+
+  End-to-end encryption is not yet implemented.
+  Messages are currently sent as plaintext.
+`, m.serverAddr)
+	}
 
 	content := lipgloss.NewStyle().
 		Width(m.width - 4).
 		Height(m.height - 6).
-		Render(info)
+		Render(lipgloss.JoinVertical(lipgloss.Left, tabBar.String(), info))
 
 	return lipgloss.JoinVertical(lipgloss.Left, header, content)
 }

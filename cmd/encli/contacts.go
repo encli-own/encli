@@ -95,6 +95,18 @@ func (cs *ContactsStore) Search(query string) []Contact {
 	return result
 }
 
+func (cs *ContactsStore) Name() string {
+	for _, c := range cs.contacts {
+		if c.ServerAddr != "" {
+			return c.Nickname
+		}
+	}
+	if len(cs.contacts) > 0 {
+		return cs.contacts[0].Nickname
+	}
+	return "not set"
+}
+
 func (cs *ContactsStore) Resolve(query string) (string, error) {
 	query = strings.TrimSpace(query)
 	if query == "" {
