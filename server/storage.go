@@ -255,18 +255,17 @@ func (ms *MemoryStorage) Stats() StorageStats {
 
 // StorageStats — статистика хранилища.
 type StorageStats struct {
-	TotalMailboxes       int
-	TotalMessages        int
-	TotalAccounts        int
-	MaxMailboxMessages   int
+	TotalMailboxes     int
+	TotalMessages      int
+	TotalAccounts      int
+	MaxMailboxMessages int
 }
 
-// generateMailboxID генерирует mailbox ID из deviceID.
+// generateMailboxID генерирует детерминированный mailbox ID из deviceID.
+// Одинаковый deviceID всегда даёт одинаковый mailboxID на этом сервере.
 func (ms *MemoryStorage) generateMailboxID(deviceID string) string {
-	// Добавляем случайную соль для уникальности на разных серверах
-	salt := time.Now().UTC().UnixNano()
 	h := sha256.New()
-	fmt.Fprintf(h, "%s|%d", deviceID, salt)
+	fmt.Fprintf(h, "encli-mailbox-v1:%s", deviceID)
 	return hex.EncodeToString(h.Sum(nil))
 }
 

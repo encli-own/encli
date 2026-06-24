@@ -5,6 +5,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
@@ -332,21 +333,26 @@ func (cn *ClientNetwork) noiseInterval() time.Duration {
 	return 30 + time.Duration(rand.Int63n(int64(60)))*time.Second
 }
 
-// SendMessage отправляет сообщение (high-level API).
-func (cn *ClientNetwork) SendMessage(msg Message) error {
-	// В реальной реализации:
-	// 1. Шифрование сообщения через Double Ratchet
-	// 2. Padding до 16KB
-	// 3. Push на сервер
+// computeMailboxID вычисляет детерминированный mailbox ID из deviceID.
+func computeMailboxID(deviceID string) string {
+	h := sha256.New()
+	h.Write([]byte("encli-mailbox-v1:" + deviceID))
+	return hex.EncodeToString(h.Sum(nil))
+}
 
+// SendMessage отправляет сообщение в mailbox получателя.
+func (cn *ClientNetwork) SendMessage(recipientDeviceID string, msg Message) error {
 	if cn.mailboxID == "" {
 		return fmt.Errorf("not connected to server")
 	}
 
+	// Вычисляем mailbox ID получателя
+	recipientMailbox := computeMailboxID(recipientDeviceID)
+
 	// Placeholder: отправка plaintext (для тестирования)
 	payload := []byte(fmt.Sprintf("%s: %s", msg.Sender, msg.Content))
 
-	return cn.PushMessage(cn.mailboxID, payload, nil)
+	return cn.PushMessage(recipientMailbox, payload, nil)
 }
 
 // PulledMessage — структура для pull ответа (duplicate для клиента).

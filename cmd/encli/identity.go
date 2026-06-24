@@ -280,7 +280,7 @@ func sendMessage(recipientID, message string) error {
 		Content: message,
 	}
 
-	if err := client.SendMessage(msg); err != nil {
+	if err := client.SendMessage(recipientID, msg); err != nil {
 		return fmt.Errorf("send: %w", err)
 	}
 

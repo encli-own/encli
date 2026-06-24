@@ -514,6 +514,15 @@ func (m *AppModel) sendMessage() {
 		return
 	}
 
+	if m.selectedChat >= len(m.conversations) {
+		return
+	}
+	conv := m.conversations[m.selectedChat]
+	recipientID := conv.ID
+	if len(conv.DeviceIDs) > 0 {
+		recipientID = conv.DeviceIDs[0]
+	}
+
 	msg := Message{
 		ID:        fmt.Sprintf("msg-%d", time.Now().UnixNano()),
 		Sender:    "me",
@@ -530,7 +539,7 @@ func (m *AppModel) sendMessage() {
 	m.refreshViewport()
 
 	// Отправляем по сети (async)
-	go m.network.SendMessage(msg)
+	go m.network.SendMessage(recipientID, msg)
 }
 
 func (m *AppModel) loadMessages(convID string) {
